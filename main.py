@@ -13,6 +13,7 @@ from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 import ctypes
 import pyautogui
+from dotenv import load_dotenv
 
 kakao_opentalk_name = '우리동네국민상회 안산초지점'
 
@@ -34,6 +35,7 @@ MapVirtualKeyW = _user32.MapVirtualKeyW
 MakeLong = win32api.MAKELONG
 w = win32con
 
+load_dotenv()
 api_key = os.environ['API_KEY']
 credentials_json = "C:\\top-opus-433400-m0-4f3b1de4a55f.json"
 
@@ -402,9 +404,11 @@ def filter_text_lines(input_file_path, output_file_path):
         # '['로 시작하는 행만 필터링
         filtered_lines = [line for line in lines if line.lstrip().startswith('[')]
 
+        print("000000000")
         # 결과를 새로운 파일에 저장
         with open(output_file_path, 'w', encoding='utf-8') as file:
             file.writelines(filtered_lines)
+            print("1111111111")
 
         print(f"Filtered text saved to {output_file_path}")
     except Exception as e:
