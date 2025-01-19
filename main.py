@@ -15,6 +15,10 @@ import ctypes
 import pyautogui
 from dotenv import load_dotenv
 
+from utils.FileHandler import read_file_to_variable, filter_text_lines
+from utils.MouseHandler import find_close_button, find_dialog_button, find_clean_dialog_menu, find_clean_dialog_button, \
+    find_clean_dialog_confirm
+
 kakao_opentalk_name = '우리동네국민상회 안산초지점'
 
 PBYTE256 = ctypes.c_ubyte * 256
@@ -40,6 +44,7 @@ api_key = os.environ['API_KEY']
 credentials_json = "C:\\top-opus-433400-m0-4f3b1de4a55f.json"
 
 input_path = "C:\\kopen\\buy"
+outout_path = "C:\\Users\\Admin\\kopen\\"
 
 
 # 디렉토리가 존재하지 않으면 새로 생성
@@ -180,7 +185,7 @@ def write_to_google_sheets(spreadsheet_url: str, raw_data: str, text_data: str):
 
     # Sheet1에 raw_data 작성
     raw_data_list = parse_text_to_list(raw_data)
-    sheet1_range = 'Sheet1!A1'  # Sheet1 시작 범위
+    sheet1_range = 'Sheet1!A3'  # Sheet1 시작 범위
     raw_body = {
         'values': raw_data_list
     }
@@ -193,7 +198,7 @@ def write_to_google_sheets(spreadsheet_url: str, raw_data: str, text_data: str):
 
     # Sheet2에 text_data 작성
     text_data_list = parse_text_to_list(text_data)
-    sheet2_range = 'Sheet2!A1'  # Sheet2 시작 범위
+    sheet2_range = 'Sheet2!A3'  # Sheet2 시작 범위
     text_body = {
         'values': text_data_list
     }
@@ -218,6 +223,33 @@ def remove_quotes(input_string):
     return input_string.replace('"', '')
 
 
+def get_latest_file(directory):
+    # 디렉토리 안의 모든 파일을 리스트로 가져오기
+    files = [os.path.join(directory, f) for f in os.listdir(directory) if os.path.isfile(os.path.join(directory, f))]
+
+    # 파일들이 없다면 None 반환
+    if not files:
+        return None
+
+    # 파일들의 수정 시간을 기준으로 가장 최신 파일을 찾기
+    latest_file = max(files, key=os.path.getmtime)
+
+    return latest_file
+
+user32 = ctypes.windll.user32
+kernel32 = ctypes.windll.kernel32
+
+# 활성화된 창의 핸들을 가져오는 함수
+def get_foreground_window():
+    return user32.GetForegroundWindow()
+
+# 윈도우 창의 제목을 가져오는 함수
+def get_window_title(hwnd):
+    length = user32.GetWindowTextLengthW(hwnd) + 1  # 제목의 길이를 구한 후 +1
+    buffer = ctypes.create_unicode_buffer(length)  # 버퍼 생성
+    user32.GetWindowTextW(hwnd, buffer, length)  # 창 제목을 버퍼에 저장
+    return buffer.value
+
 def main():
     open_chatroom(kakao_opentalk_name)
     time.sleep(2)
@@ -233,17 +265,15 @@ def main():
     PostKeyEx(hwndListControl, ord('S'), [w.VK_CONTROL], False)
     time.sleep(1)
 
-    # 파일 내용 정리 후 다시 저장, 기존 임시 파일 삭제
-    if(filter_text_lines(input_path, input_path + "\\" + kakao_opentalk_name)) :
-        delete_kakaotalk_files(input_path)
-
-
+    # 파일 내용 정리 후 다시 저장
+    kakotalk_file_path = get_latest_file(input_path)
+    filtered_file_path = filter_text_lines(kakao_opentalk_name, kakotalk_file_path, outout_path + kakao_opentalk_name + "\\")
 
     # 저장 닫기
     PostKeyEx(hwndListControl, 0x0D, [w.VK_RETURN], False)
 
     time.sleep(2)
-    
+
     # 닫기 버튼 찾아 닫기
     # pyautogui.moveTo(find_close_button(hwndListControl))
     pyautogui.click(find_close_button(hwndListControl))
@@ -263,7 +293,7 @@ def main():
 
     # 대화내용 지우기 버튼 찾기
     pyautogui.moveTo(find_clean_dialog_button(hwndListControl))
-    pyautogui.click(find_clean_dialog_button(hwndListControl))
+    # pyautogui.click(find_clean_dialog_button(hwndListControl))
 
     time.sleep(1)
 
@@ -271,169 +301,16 @@ def main():
     pyautogui.moveTo(find_clean_dialog_confirm(hwndListControl))
     # pyautogui.click(find_clean_dialog_confirm(hwndListControl))
 
-
-    # ctext = clipboard.GetData()
+    # 파일 읽어서 LLM 에게 질문하기
+    ctext = read_file_to_variable(filtered_file_path, "utf-8")
+    print("ctext : ", ctext)
     # print(ctext)
     # response = chat_with_gpt(api_key, "system 으로 보낸 content 의 내용을 보고 주문내역을 구글 스프레드시트에 붙여 넣을 수 있게 csv 파일 타입으로 정리해줘. 주문자, 상품명, 수량 을 테이블 헤더로. 한글로만 답변해. 주문내역 외 기타 다른 대답은 생성 하지마", ctext)
     #
     # print(remove_quotes(response))
     # if response:
-    #     write_to_google_sheets("https://docs.google.com/spreadsheets/d/1P-4rqijcsLK7O2DoL2kuEj4tMdP32dC6hpankFKnWv0/edit?usp=sharing",ctext, remove_quotes(response))
+    # write_to_google_sheets("https://docs.google.com/spreadsheets/d/1P-4rqijcsLK7O2DoL2kuEj4tMdP32dC6hpankFKnWv0/edit?usp=sharing",ctext, remove_quotes(response))
 
-
-user32 = ctypes.windll.user32
-kernel32 = ctypes.windll.kernel32
-
-# 활성화된 창의 핸들을 가져오는 함수
-def get_foreground_window():
-    return user32.GetForegroundWindow()
-
-# 윈도우 창의 제목을 가져오는 함수
-def get_window_title(hwnd):
-    length = user32.GetWindowTextLengthW(hwnd) + 1  # 제목의 길이를 구한 후 +1
-    buffer = ctypes.create_unicode_buffer(length)  # 버퍼 생성
-    user32.GetWindowTextW(hwnd, buffer, length)  # 창 제목을 버퍼에 저장
-    return buffer.value
-
-
-# 마우스 좌표를 저장할 구조체 정의
-class POINT(ctypes.Structure):
-    _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
-
-# 마우스 좌표를 가져오는 함수
-def get_mouse_position():
-    point = POINT()
-    user32.GetCursorPos(ctypes.byref(point))  # GetCursorPos 호출
-    return point.x, point.y
-
-
-class RECT(ctypes.Structure):
-    _fields_ = [("left", ctypes.c_long),
-                ("top", ctypes.c_long),
-                ("right", ctypes.c_long),
-                ("bottom", ctypes.c_long)]
-
-# 닫기 버튼 찾기
-def find_close_button(hwnd):
-
-    # 윈도우 RECT 가져오기
-    rect = RECT()
-    user32.GetWindowRect(hwnd, ctypes.byref(rect))
-
-    width = rect.right - rect.left
-    height = rect.bottom - rect.top
-    x = rect.left + width // 2 + 55
-    y = rect.top + height // 4 * 3.4
-
-    return x, y
-
-
-# 대화내용 버튼 찾기
-def find_dialog_button(hwnd):
-
-    # 윈도우 RECT 가져오기
-    rect = RECT()
-    user32.GetWindowRect(hwnd, ctypes.byref(rect))
-
-    width = rect.right - rect.left
-    x = rect.left + width - 25
-    y = rect.top - 30
-
-    return x, y
-
-# 대화내용 메뉴 찾기
-def find_clean_dialog_menu(hwnd):
-
-    # 윈도우 RECT 가져오기
-    rect = RECT()
-    user32.GetWindowRect(hwnd, ctypes.byref(rect))
-
-    width = rect.right - rect.left
-    x = rect.left + width - 25
-    y = rect.top + 242
-
-    return x, y
-
-
-# 대화지우기 버튼 찾기
-def find_clean_dialog_button(hwnd):
-
-    # 윈도우 RECT 가져오기
-    rect = RECT()
-    user32.GetWindowRect(hwnd, ctypes.byref(rect))
-
-    width = rect.right - rect.left
-    x = rect.left + width + 200
-    y = rect.top + 290
-
-    return x, y
-
-
-# 대화지우기 확인 버튼 찾기
-def find_clean_dialog_confirm(hwnd):
-
-    # 윈도우 RECT 가져오기
-    rect = RECT()
-    user32.GetWindowRect(hwnd, ctypes.byref(rect))
-
-    width = rect.right - rect.left
-    height = rect.bottom - rect.top
-    x = rect.left + width // 2 - 80
-    y = rect.top + height // 4 * 3.2
-
-    return x, y
-
-
-def filter_text_lines(input_file_path, output_file_path):
-    """
-    입력 파일에서 '['로 시작하는 행을 제외한 모든 텍스트를 삭제하고 결과를 새로운 파일에 저장합니다.
-
-    :param input_file_path: 원본 파일 경로 (str)
-    :param output_file_path: 출력 파일 경로 (str)
-    """
-    try:
-        # 출력 디렉토리 생성
-        output_dir = os.path.dirname(output_file_path)
-        if output_dir and not os.path.exists(output_dir):
-            os.makedirs(output_dir)
-
-        # 파일 읽기
-        with open(input_file_path, 'r', encoding='utf-8') as file:
-            lines = file.readlines()
-
-        # '['로 시작하는 행만 필터링
-        filtered_lines = [line for line in lines if line.lstrip().startswith('[')]
-
-        print("000000000")
-        # 결과를 새로운 파일에 저장
-        with open(output_file_path, 'w', encoding='utf-8') as file:
-            file.writelines(filtered_lines)
-            print("1111111111")
-
-        print(f"Filtered text saved to {output_file_path}")
-    except Exception as e:
-        print(f"An error occurred: {e}")
-
-
-def delete_kakaotalk_files(directory_path):
-    """
-    지정된 디렉토리에서 'KakaoTalk'로 시작하는 모든 파일을 삭제합니다.
-
-    :param directory_path: 디렉토리 경로 (str)
-    """
-    try:
-        if not os.path.exists(directory_path):
-            print(f"Directory does not exist: {directory_path}")
-            return
-
-        for filename in os.listdir(directory_path):
-            if filename.startswith("KakaoTalk"):
-                file_path = os.path.join(directory_path, filename)
-                if os.path.isfile(file_path):
-                    os.remove(file_path)
-                    print(f"Deleted file: {file_path}")
-    except Exception as e:
-        print(f"An error occurred while deleting files: {e}")
 
 if __name__ == "__main__":
     print("Starting script...")
